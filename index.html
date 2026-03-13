@@ -227,10 +227,6 @@ footer{text-align:center;padding:20px;font-size:0.72rem;color:#86868b;border-top
   </div>
   <div class="promo-body">
     <div class="promo-inputs">
-      <div class="promo-row">
-        <div class="promo-field"><label>Year (optional)</label><select id="pY" onchange="runP()"><option value="">Any</option></select></div>
-        <div class="promo-field"><label>Month (optional)</label><select id="pM" onchange="runP()"><option value="">Any</option><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
-      </div>
       <div class="promo-field"><label>Employee ID (E.ID)</label><input type="text" id="pE" placeholder="Enter Employee ID" oninput="onEidInput()"></div>
       <button class="promo-search-btn" onclick="runP()">🔍 &nbsp;Forecast Cadre</button>
     </div>
@@ -338,13 +334,14 @@ function findAllPromos(person){
 }
 
 function runP(){
-  const yv=document.getElementById('pY').value,mv=document.getElementById('pM').value,ev=document.getElementById('pE').value.trim();
+  const ev=document.getElementById('pE').value.trim();
   const rd=document.getElementById('pR');
   if(!ev){rd.innerHTML='<div class="promo-empty"><div class="pe-icon">🎯</div>Enter Employee ID to see<br>promotion forecast instantly</div>';return}
   const per=RAW.find(d=>String(d.eid)===ev);
   if(!per){rd.innerHTML='<div class="promo-empty" style="color:#dc2626;opacity:1"><div class="pe-icon">🔍</div>Employee ID <b>'+ev+'</b> not found</div>';return}
-  const ty=yv?parseInt(yv):2045,tm=mv?parseInt(mv):12;
-  const isR=rB(per,ty,tm);
+  const yv='',mv='';
+  const ty=2045,tm=12;
+  const isR=false;
   const ini=per.name.split(/[\s.]+/).filter(w=>w.length>0).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   const pC=per.cadre;
   function bcl(c){return c==='CGM'?'cb-cgm':c==='GM'?'cb-gm':c==='EE'?'cb-ee':'cb-dyee'}
@@ -356,45 +353,37 @@ function runP(){
   let h='<div class="promo-card"><div class="confetti-zone" id="cZ"></div>';
   h+='<div class="promo-name-row"><div class="promo-avatar">'+ini+'</div><div><div class="promo-name">'+per.name+'</div><div class="promo-eid-label">E.ID: '+per.eid+(per.community?' • '+per.community:'')+'</div></div></div>';
 
-  if(yv&&mv&&isR){
-    h+='<div class="promo-info-grid"><div class="promo-info-item"><div class="promo-info-label">Name</div><div class="promo-info-val" style="font-size:0.85rem">'+per.name+'</div></div>';
-    h+='<div class="promo-info-item"><div class="promo-info-label">Present designation</div><div class="promo-info-val"><span class="cbadge '+bcl(pC)+'">'+CH[pC]+' '+pC+'</span></div></div></div>';
-    h+='<div class="promo-retired-banner"><div class="r-icon">🏖️</div><div class="r-text">This officer has retired</div><div class="r-detail">Retirement: '+(per.month||'')+' '+(per.retire_year||'')+' • Queried: '+MO[tm-1]+' '+ty+'</div><div class="r-wish">Wishing a happy and healthy retired life! 🌟</div></div>';
-  } else {
-    // Info grid: name, current cadre, cadre sl, retirement
-    h+='<div class="promo-info-grid">';
-    h+='<div class="promo-info-item"><div class="promo-info-label">Name</div><div class="promo-info-val" style="font-size:0.85rem">'+per.name+'</div></div>';
-    h+='<div class="promo-info-item"><div class="promo-info-label">Present Designation</div><div class="promo-info-val"><span class="cbadge '+bcl(pC)+'">'+CH[pC]+' '+pC+'</span></div></div>';
-    h+='<div class="promo-info-item"><div class="promo-info-label">Cadre Sl.No</div><div class="promo-info-val">'+(per.cadre_sl||'—')+'</div></div>';
-    h+='<div class="promo-info-item"><div class="promo-info-label">Superannuation</div><div class="promo-info-val">'+(per.month||'—')+' '+(per.retire_year||'—')+'</div></div>';
-    h+='</div>';
+  // Info grid: name, current cadre, cadre sl, retirement
+  h+='<div class="promo-info-grid">';
+  h+='<div class="promo-info-item"><div class="promo-info-label">Name</div><div class="promo-info-val" style="font-size:0.85rem">'+per.name+'</div></div>';
+  h+='<div class="promo-info-item"><div class="promo-info-label">Present Designation</div><div class="promo-info-val"><span class="cbadge '+bcl(pC)+'">'+CH[pC]+' '+pC+'</span></div></div>';
+  h+='<div class="promo-info-item"><div class="promo-info-label">Cadre Sl.No</div><div class="promo-info-val">'+(per.cadre_sl||'—')+'</div></div>';
+  h+='<div class="promo-info-item"><div class="promo-info-label">Superannuation</div><div class="promo-info-val">'+(per.month||'—')+' '+(per.retire_year||'—')+'</div></div>';
+  h+='</div>';
 
-    // Promotion Timeline
-    if(hasPromos){
-      h+='<div style="margin-top:10px">';
-      h+='<div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#1565c0;margin-bottom:8px;padding-left:2px">📈 Complete Promotion Forecast — Career Timeline</div>';
-      h+='<div class="promo-timeline">';
-      // Starting point
-      h+='<div class="pt-row pt-start"><div class="pt-dot pt-dot-start"></div><div class="pt-content"><span class="cbadge '+bcl(pC)+'">'+CH[pC]+' '+pC+'</span><span class="pt-label">Current Cadre</span></div></div>';
-      allPromos.forEach(function(p,i){
-        const isLast=(i===allPromos.length-1);
-        h+='<div class="pt-row'+(isLast?' pt-last':'')+'"><div class="pt-line"></div><div class="pt-dot pt-dot-'+p.cadre.replace('.','')+'"></div><div class="pt-content"><span class="cbadge '+bcl(p.cadre)+'">'+CH[p.cadre]+' '+p.cadre+'</span><span class="pt-date">'+MO[p.month-1]+' '+p.year+'</span><span class="pt-arrow">← Promoted from '+p.from+'</span></div></div>';
-      });
-      // Retirement node
-      h+='<div class="pt-row pt-retire"><div class="pt-line"></div><div class="pt-dot pt-dot-retire"></div><div class="pt-content"><span style="font-size:0.78rem;font-weight:700;color:#991b1b">🏖️ Superannuation</span><span class="pt-date" style="color:#b91c1c">'+(per.month||'—')+' '+(per.retire_year||'—')+'</span><span class="pt-arrow">Retires as '+allPromos[allPromos.length-1].cadre+'</span></div></div>';
-      h+='</div></div>';
-      // Summary banner
-      h+='<div class="promo-promotion-banner" style="margin-top:10px"><div class="promo-promo-text">🎉 '+allPromos.length+' Promotion'+(allPromos.length>1?'s':'')+' projected during career</div>';
-      h+='<div class="promo-promo-detail">'+pC+' '+CH[pC]+' ➜ '+allPromos.map(function(p){return CH[p.cadre]+' '+p.cadre+' <span style="font-weight:400;font-size:0.7rem">('+MO[p.month-1]+' '+p.year+')</span>'}).join(' ➜ ')+'</div></div>';
-    } else {
-      h+='<div style="text-align:center;padding:10px;font-size:0.78rem;color:#5e35b1;background:rgba(123,104,238,0.05);border-radius:10px;margin-top:4px">📌 No promotion projected — retires as <b>'+pC+'</b> in '+(per.month||'')+' '+(per.retire_year||'')+'</div>';
-    }
+  // Promotion Timeline
+  if(hasPromos){
+    h+='<div style="margin-top:10px">';
+    h+='<div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#1565c0;margin-bottom:8px;padding-left:2px">📈 Complete Promotion Forecast — Career Timeline</div>';
+    h+='<div class="promo-timeline">';
+    // Starting point
+    h+='<div class="pt-row pt-start"><div class="pt-dot pt-dot-start"></div><div class="pt-content"><span class="cbadge '+bcl(pC)+'">'+CH[pC]+' '+pC+'</span><span class="pt-label">Current Cadre</span></div></div>';
+    allPromos.forEach(function(p,i){
+      const isLast=(i===allPromos.length-1);
+      h+='<div class="pt-row'+(isLast?' pt-last':'')+'"><div class="pt-line"></div><div class="pt-dot pt-dot-'+p.cadre.replace('.','')+'"></div><div class="pt-content"><span class="cbadge '+bcl(p.cadre)+'">'+CH[p.cadre]+' '+p.cadre+'</span><span class="pt-date">'+MO[p.month-1]+' '+p.year+'</span><span class="pt-arrow">← Promoted from '+p.from+'</span></div></div>';
+    });
+    // Retirement node
+    h+='<div class="pt-row pt-retire"><div class="pt-line"></div><div class="pt-dot pt-dot-retire"></div><div class="pt-content"><span style="font-size:0.78rem;font-weight:700;color:#991b1b">🏖️ Superannuation</span><span class="pt-date" style="color:#b91c1c">'+(per.month||'—')+' '+(per.retire_year||'—')+'</span><span class="pt-arrow">Retires as '+allPromos[allPromos.length-1].cadre+'</span></div></div>';
+    h+='</div></div>';
+    // Summary banner
+    h+='<div class="promo-promotion-banner" style="margin-top:10px"><div class="promo-promo-text">🎉 '+allPromos.length+' Promotion'+(allPromos.length>1?'s':'')+' projected during career</div>';
+    h+='<div class="promo-promo-detail">'+pC+' '+CH[pC]+' ➜ '+allPromos.map(function(p){return CH[p.cadre]+' '+p.cadre+' <span style="font-weight:400;font-size:0.7rem">('+MO[p.month-1]+' '+p.year+')</span>'}).join(' ➜ ')+'</div></div>';
+  } else {
+    h+='<div style="text-align:center;padding:10px;font-size:0.78rem;color:#5e35b1;background:rgba(123,104,238,0.05);border-radius:10px;margin-top:4px">📌 No promotion projected — retires as <b>'+pC+'</b> in '+(per.month||'')+' '+(per.retire_year||'')+'</div>';
   }
   h+='</div>';rd.innerHTML=h;
-  if(hasPromos&&!(yv&&mv&&isR)){setTimeout(()=>{const z=document.getElementById('cZ');if(z)spawnC(z);playC()},300)}
+  if(hasPromos){setTimeout(()=>{const z=document.getElementById('cZ');if(z)spawnC(z);playC()},300)}
 }
-
-(function(){const s=document.getElementById('pY');for(let y=2026;y<=2045;y++){const o=document.createElement('option');o.value=y;o.text=y;s.appendChild(o)}})();
 
 function showRT(e,year,month){const t=document.getElementById('rtip');const ret=RAW.filter(d=>{if(year&&String(d.retire_year)!==String(year))return false;if(month&&d.month!==month)return false;return d.retire_year!=null});let h='<div class="rt-title">'+(month?month+' ':'')+''+(year||'')+'</div><div class="rt-count">'+ret.length+' retirement'+(ret.length!==1?'s':'')+'</div>';if(ret.length>0){h+='<div class="rt-list">';ret.forEach(r=>{h+='<div class="rt-item"><span class="rt-name">'+r.name+'</span><span class="rt-cadre">'+CH[r.cadre]+' '+r.cadre+'</span></div>'});h+='</div>'}t.innerHTML=h;t.style.opacity=1;let lx=e.clientX+14,ly=e.clientY-20;if(lx+380>window.innerWidth)lx=e.clientX-390;if(ly<10)ly=10;t.style.left=lx+'px';t.style.top=ly+'px'}
 function hideRT(){document.getElementById('rtip').style.opacity=0}
