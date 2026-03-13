@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engineers Seniority Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #ffffff; color: #1e293b; }
+
+  header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: white; padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.18);
+  }
+  header h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: 0.02em; }
+  header p { font-size: 0.82rem; opacity: 0.8; margin-top: 3px; }
+  .header-badge {
+    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px; padding: 6px 18px; font-size: 0.78rem; font-weight: 600;
+    backdrop-filter: blur(6px);
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 28px; }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-card {
+    background: #fff; border-radius: 14px; padding: 20px 22px;
+    border: 1px solid #e2e8f0; position: relative; overflow: hidden;
+    transition: transform 0.22s, box-shadow 0.22s;
+    cursor: default;
+  }
+  .kpi-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.09); }
+  .kpi-card .accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 14px 0 0 14px; }
+  .kpi-card .label { font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 6px; }
+  .kpi-card .value { font-size: 2rem; font-weight: 800; line-height: 1; }
+  .kpi-card .sub { font-size: 0.76rem; color: #94a3b8; margin-top: 5px; }
+  .kpi-card .icon { position: absolute; right: 16px; top: 16px; font-size: 1.6rem; opacity: 0.12; }
+
+  /* Filters */
+  .filters {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .filters label { font-size: 0.78rem; font-weight: 600; color: #475569; }
+  .filter-btn {
+    border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 6px 16px;
+    font-size: 0.78rem; font-weight: 600; background: #fff; cursor: pointer;
+    color: #475569; transition: all 0.18s;
+  }
+  .filter-btn:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
+  .filter-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+  .filter-btn.cgm.active { background: #7c3aed; border-color: #7c3aed; }
+  .filter-btn.gm.active  { background: #0891b2; border-color: #0891b2; }
+  .filter-btn.ee.active  { background: #059669; border-color: #059669; }
+  .filter-btn.dyee.active{ background: #d97706; border-color: #d97706; }
+
+  /* Charts grid */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .chart-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    padding: 20px; transition: box-shadow 0.22s;
+  }
+  .chart-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.08); }
+  .chart-card h3 { font-size: 0.88rem; font-weight: 700; color: #334155; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .chart-card h3 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .chart-card.full { grid-column: span 2; }
+
+  canvas { max-height: 280px; }
+
+  /* Table */
+  .table-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    padding: 20px; margin-bottom: 20px;
+  }
+  .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .table-header h3 { font-size: 0.9rem; font-weight: 700; color: #334155; }
+  .search-box {
+    border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 7px 12px;
+    font-size: 0.78rem; width: 220px; outline: none; transition: border 0.18s;
+  }
+  .search-box:focus { border-color: #2563eb; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  thead th {
+    background: #f1f5f9; padding: 10px 12px; text-align: left;
+    font-weight: 700; color: #475569; text-transform: uppercase;
+    font-size: 0.7rem; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0;
+    cursor: pointer; user-select: none; transition: background 0.15s;
+  }
+  thead th:hover { background: #e2e8f0; }
+  tbody tr { border-bottom: 1px solid #f1f5f9; transition: background 0.14s; }
+  tbody tr:hover { background: #f8fafc; }
+  tbody td { padding: 9px 12px; color: #334155; }
+
+  .badge {
+    display: inline-block; border-radius: 12px; padding: 3px 10px;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .badge-cgm { background: #ede9fe; color: #6d28d9; }
+  .badge-gm  { background: #cffafe; color: #0e7490; }
+  .badge-ee  { background: #d1fae5; color: #065f46; }
+  .badge-dyee{ background: #fef3c7; color: #92400e; }
+
+  .pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 14px; font-size: 0.78rem; color: #64748b;
+  }
+  .page-btns { display: flex; gap: 6px; }
+  .page-btn {
+    border: 1.5px solid #e2e8f0; border-radius: 6px; padding: 5px 12px;
+    background: #fff; cursor: pointer; font-size: 0.76rem; transition: all 0.15s;
+  }
+  .page-btn:hover { background: #2563eb; color: #fff; border-color: #2563eb; }
+  .page-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+  .year-select {
+    border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 6px 10px;
+    font-size: 0.78rem; outline: none; cursor: pointer;
+  }
+
+  /* Heatmap */
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: 70px repeat(12, 1fr);
+    gap: 3px;
+    font-size: 0.68rem;
+  }
+  .hm-header { font-weight: 700; color: #64748b; text-align: center; padding: 4px 0; }
+  .hm-year { font-weight: 700; color: #334155; display: flex; align-items: center; padding-right: 6px; font-size: 0.72rem; }
+  .hm-cell {
+    border-radius: 5px; height: 28px; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 0.67rem;
+    transition: transform 0.15s, box-shadow 0.15s; cursor: default;
+    position: relative;
+  }
+  .hm-cell:hover { transform: scale(1.15); box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 2; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed; background: #1e293b; color: #fff; padding: 8px 12px;
+    border-radius: 8px; font-size: 0.74rem; pointer-events: none; z-index: 100;
+    opacity: 0; transition: opacity 0.15s; max-width: 200px; line-height: 1.5;
+  }
+
+  footer { text-align: center; padding: 18px; font-size: 0.74rem; color: #94a3b8; border-top: 1px solid #e2e8f0; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="tooltip" id="tooltip"></div>
+
+<header>
+  <div>
+    <h1>⚡ Engineers Seniority Dashboard</h1>
+    <p>APEPDCL — Seniority List as on 12th March 2026</p>
+  </div>
+  <div class="header-badge">291 Engineers</div>
+</header>
+
+<div class="container">
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card" style="border-left: 4px solid #7c3aed;" onmouseenter="showTip(event,'CGM: Chief General Manager')" onmouseleave="hideTip()">
+      <div class="label">CGM</div>
+      <div class="value" style="color:#7c3aed">9</div>
+      <div class="sub">Chief General Managers</div>
+      <div class="icon">👑</div>
+    </div>
+    <div class="kpi-card" style="border-left: 4px solid #0891b2;" onmouseenter="showTip(event,'GM: General Manager')" onmouseleave="hideTip()">
+      <div class="label">GM</div>
+      <div class="value" style="color:#0891b2">20</div>
+      <div class="sub">General Managers</div>
+      <div class="icon">🏛️</div>
+    </div>
+    <div class="kpi-card" style="border-left: 4px solid #059669;" onmouseenter="showTip(event,'EE: Executive Engineer')" onmouseleave="hideTip()">
+      <div class="label">EE</div>
+      <div class="value" style="color:#059669">80</div>
+      <div class="sub">Executive Engineers</div>
+      <div class="icon">⚙️</div>
+    </div>
+    <div class="kpi-card" style="border-left: 4px solid #d97706;" onmouseenter="showTip(event,'Dy.EE: Deputy Executive Engineer')" onmouseleave="hideTip()">
+      <div class="label">Dy.EE</div>
+      <div class="value" style="color:#d97706">182</div>
+      <div class="sub">Deputy Exec. Engineers</div>
+      <div class="icon">🔧</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <label>Filter by Cadre:</label>
+    <button class="filter-btn active" onclick="setFilter('ALL',this)">All Cadres</button>
+    <button class="filter-btn cgm" onclick="setFilter('CGM',this)">CGM</button>
+    <button class="filter-btn gm" onclick="setFilter('GM',this)">GM</button>
+    <button class="filter-btn ee" onclick="setFilter('EE',this)">EE</button>
+    <button class="filter-btn dyee" onclick="setFilter('Dy.EE',this)">Dy.EE</button>
+    <label style="margin-left:auto">Year:</label>
+    <select class="year-select" id="yearFilter" onchange="renderAll()">
+      <option value="ALL">All Years</option>
+    </select>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3><span class="dot" style="background:#7c3aed"></span>Cadre-wise Strength</h3>
+      <canvas id="cadreChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><span class="dot" style="background:#2563eb"></span>Retirement by Month</h3>
+      <canvas id="monthChart"></canvas>
+    </div>
+    <div class="chart-card full">
+      <h3><span class="dot" style="background:#059669"></span>Year-wise Retirement Timeline</h3>
+      <canvas id="yearChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="chart-card" style="margin-bottom:20px">
+    <h3><span class="dot" style="background:#d97706"></span>Retirement Heatmap — Year × Month</h3>
+    <div id="heatmap" style="overflow-x:auto; padding-top:8px;"></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <h3>📋 Engineer Seniority List</h3>
+      <input class="search-box" type="text" placeholder="🔍  Search name, ID, cadre…" id="searchBox" oninput="renderTable()">
+    </div>
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th onclick="sortTable('sl')">Sl # ↕</th>
+          <th onclick="sortTable('eid')">Emp ID ↕</th>
+          <th onclick="sortTable('name')">Name ↕</th>
+          <th onclick="sortTable('cadre')">Cadre ↕</th>
+          <th onclick="sortTable('community')">Community</th>
+          <th onclick="sortTable('retire_year')">Retire Year ↕</th>
+          <th onclick="sortTable('month')">Retire Month ↕</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="pagination">
+      <span id="pageInfo"></span>
+      <div class="page-btns" id="pageBtns"></div>
+    </div>
+  </div>
+
+</div>
+<footer>Engineers Seniority Dashboard &bull; Data as on 12 March 2026 &bull; Total 291 Engineers</footer>
+
+<script>
+const RAW = [{"sl":1,"cadre_sl":1,"eid":1068966,"name":"VIPPARTI VIJAYALALITHA","dob":"1968-05-12","community":"SC","dob_year":1968,"retire_year":2028,"month":"May","cadre":"CGM"},{"sl":2,"cadre_sl":2,"eid":1019083,"name":"D SUMANKALYANI","dob":"1971-05-10","community":"ST","dob_year":1971,"retire_year":2031,"month":"May","cadre":"CGM"},{"sl":3,"cadre_sl":3,"eid":1019109,"name":"B ASHOKKUMAR","dob":"1967-08-25","community":"BC-A","dob_year":1967,"retire_year":2027,"month":"August","cadre":"CGM"},{"sl":4,"cadre_sl":4,"eid":1023294,"name":"L MAHENDRANATH","dob":"1970-06-07","community":"ST","dob_year":1970,"retire_year":2030,"month":"June","cadre":"CGM"},{"sl":5,"cadre_sl":5,"eid":1024127,"name":"S RAJABABU","dob":"1967-06-26","community":"SC","dob_year":1967,"retire_year":2027,"month":"June","cadre":"CGM"},{"sl":6,"cadre_sl":6,"eid":1019260,"name":"LDYVAPRASAD","dob":"1967-05-27","community":"BC-C","dob_year":1967,"retire_year":2027,"month":"May","cadre":"CGM"},{"sl":7,"cadre_sl":7,"eid":1023409,"name":"S VIJAYAPARATAP","dob":"1968-08-17","community":"BC-D","dob_year":1968,"retire_year":2028,"month":"August","cadre":"CGM"},{"sl":8,"cadre_sl":8,"eid":1068969,"name":"M VIJAYACHAMUNDI","dob":"1966-07-24","community":"OC","dob_year":1966,"retire_year":2026,"month":"July","cadre":"CGM"},{"sl":9,"cadre_sl":9,"eid":1029430,"name":"VJANARDHANARAO","dob":"1966-05-26","community":"BC-B","dob_year":1966,"retire_year":2026,"month":"May","cadre":"CGM"},{"sl":10,"cadre_sl":1,"eid":1016982,"name":"PSOLOMANRAJU","dob":"1968-06-02","community":"SC","dob_year":1968,"retire_year":2028,"month":"June","cadre":"GM"},{"sl":11,"cadre_sl":2,"eid":1033556,"name":"G SYAMBABU","dob":"1968-03-20","community":"SC","dob_year":1968,"retire_year":2028,"month":"March","cadre":"GM"},{"sl":12,"cadre_sl":3,"eid":1026965,"name":"K TILAKKUMAR","dob":"1968-08-29","community":"SC","dob_year":1968,"retire_year":2028,"month":"August","cadre":"GM"},{"sl":13,"cadre_sl":4,"eid":1031527,"name":"PSSVRAMAMURTHY","dob":"1966-08-12","community":"OC","dob_year":1966,"retire_year":2026,"month":"August","cadre":"GM"},{"sl":14,"cadre_sl":5,"eid":1024135,"name":"B RAJESWARI","dob":"25081","community":"OC","dob_year":1968,"retire_year":2028,"month":"August","cadre":"GM"},{"sl":15,"cadre_sl":6,"eid":1029445,"name":"MLAKSHMANARAO","dob":"27559","community":"ST","dob_year":1975,"retire_year":2035,"month":"June","cadre":"GM"},{"sl":16,"cadre_sl":7,"eid":1022575,"name":"N KRISHNAMURTHY","dob":"24237","community":"BC-D","dob_year":1966,"retire_year":2026,"month":"May","cadre":"GM"},{"sl":17,"cadre_sl":8,"eid":1049914,"name":"Goppu PRASAD","dob":"1969-08-01","community":"BC-B","dob_year":1969,"retire_year":2029,"month":"August","cadre":"GM"},{"sl":18,"cadre_sl":9,"eid":1021126,"name":"PSRIDEVI","dob":"1968-08-24","community":"BC-A","dob_year":1968,"retire_year":2028,"month":"August","cadre":"GM"},{"sl":19,"cadre_sl":10,"eid":1023379,"name":"Gorla PRASAD","dob":"1966-07-14","community":"OC","dob_year":1966,"retire_year":2026,"month":"July","cadre":"GM"},{"sl":20,"cadre_sl":11,"eid":1070652,"name":"GNPRASAD","dob":"1968-07-28","community":"OC","dob_year":1968,"retire_year":2028,"month":"July","cadre":"GM"},{"sl":21,"cadre_sl":12,"eid":1025909,"name":"VSSUBRAHMANYAM","dob":"1967-12-17","community":"BC-D","dob_year":1967,"retire_year":2027,"month":"December","cadre":"GM"},{"sl":22,"cadre_sl":13,"eid":1024511,"name":"VVENKATAKISHORE","dob":"1969-03-17","community":"OC","dob_year":1969,"retire_year":2029,"month":"March","cadre":"GM"},{"sl":23,"cadre_sl":14,"eid":1024134,"name":"PVENKATESWARARAO","dob":"1966-04-29","community":"BC-B","dob_year":1966,"retire_year":2026,"month":"April","cadre":"GM"},{"sl":24,"cadre_sl":15,"eid":1022224,"name":"VSV RAMANAMURTHY","dob":"1966-05-21","community":"BC-D","dob_year":1966,"retire_year":2026,"month":"May","cadre":"GM"},{"sl":25,"cadre_sl":16,"eid":1036864,"name":"K MALLIKARUNARAO","dob":"1970-07-26","community":"BC-B","dob_year":1970,"retire_year":2030,"month":"July","cadre":"GM"},{"sl":26,"cadre_sl":17,"eid":1019082,"name":"K SUREKHA","dob":"1969-08-31","community":"BC-B","dob_year":1969,"retire_year":2029,"month":"August","cadre":"GM"},{"sl":27,"cadre_sl":18,"eid":1024503,"name":"P USHARANI","dob":"1973-10-04","community":"ST","dob_year":1973,"retire_year":2033,"month":"October","cadre":"GM"},{"sl":28,"cadre_sl":19,"eid":1027036,"name":"M JHANSI","dob":"1970-06-28","community":"SC","dob_year":1970,"retire_year":2030,"month":"June","cadre":"GM"},{"sl":29,"cadre_sl":20,"eid":1050271,"name":"Y DAVID","dob":"1969-01-01","community":"SC","dob_year":1969,"retire_year":2029,"month":"January","cadre":"GM"},{"sl":30,"cadre_sl":1,"eid":1024754,"name":"Y VIJAYANAND","dob":"1968-08-31","community":"SC","dob_year":1968,"retire_year":2028,"month":"August","cadre":"EE"},{"sl":31,"cadre_sl":2,"eid":1049668,"name":"K M AMBEDKAR","dob":"1969-01-06","community":"SC","dob_year":1969,"retire_year":2029,"month":"January","cadre":"EE"},{"sl":32,"cadre_sl":3,"eid":1021521,"name":"P TRINADHARAO","dob":"1969-03-01","community":"BC-D","dob_year":1969,"retire_year":2029,"month":"March","cadre":"EE"},{"sl":33,"cadre_sl":4,"eid":1023384,"name":"KVS SATYANARAYANA","dob":"1968-07-01","community":"BC-D","dob_year":1968,"retire_year":2028,"month":"July","cadre":"EE"},{"sl":34,"cadre_sl":5,"eid":1019085,"name":"A SRILATHA","dob":"1970-01-10","community":"BC-D","dob_year":1970,"retire_year":2030,"month":"January","cadre":"EE"},{"sl":35,"cadre_sl":6,"eid":1019306,"name":"E RAJKUMAR","dob":"1968-12-11","community":"BC-A","dob_year":1968,"retire_year":2028,"month":"December","cadre":"EE"},{"sl":36,"cadre_sl":7,"eid":1017194,"name":"PEER AHMADKHAN","dob":"1972-02-08","community":"OC","dob_year":1972,"retire_year":2032,"month":"February","cadre":"EE"},{"sl":37,"cadre_sl":8,"eid":1021050,"name":"B SIMHACHALAM NAIDU","dob":"1970-06-30","community":"BC-D","dob_year":1970,"retire_year":2030,"month":"June","cadre":"EE"},{"sl":38,"cadre_sl":9,"eid":1023919,"name":"N UDAYBHASKAR","dob":"1968-06-07","community":"OC","dob_year":1968,"retire_year":2028,"month":"June","cadre":"EE"},{"sl":39,"cadre_sl":10,"eid":1029417,"name":"P V V SATYANARAYANA","dob":"1966-04-16","community":"BC-B","dob_year":1966,"retire_year":2026,"month":"April","cadre":"EE"},{"sl":40,"cadre_sl":11,"eid":1049661,"name":"B SAMBASIVARAO","dob":"1970-03-16","community":"SC","dob_year":1970,"retire_year":2030,"month":"March","cadre":"EE"},{"sl":41,"cadre_sl":12,"eid":1024129,"name":"B RAMAKRISHNA","dob":"1970-06-25","community":"SC","dob_year":1970,"retire_year":2030,"month":"June","cadre":"EE"},{"sl":42,"cadre_sl":13,"eid":1023909,"name":"N NARAYANA APPARAO","dob":"1969-05-20","community":"OC","dob_year":1969,"retire_year":2029,"month":"May","cadre":"EE"},{"sl":43,"cadre_sl":14,"eid":1023205,"name":"LCHINABABUPATRUDU","dob":"1970-01-18","community":"ST","dob_year":1970,"retire_year":2030,"month":"January","cadre":"EE"},{"sl":44,"cadre_sl":15,"eid":1024133,"name":"T VENKATESWARA RAO","dob":"1970-04-26","community":"BC-A","dob_year":1970,"retire_year":2030,"month":"April","cadre":"EE"},{"sl":45,"cadre_sl":16,"eid":1022221,"name":"B K NAIDU","dob":"1968-03-11","community":"BC-D","dob_year":1968,"retire_year":2028,"month":"March","cadre":"EE"},{"sl":46,"cadre_sl":17,"eid":1050268,"name":"M SUDHARSANA RAO","dob":"1968-07-05","community":"BC-D","dob_year":1968,"retire_year":2028,"month":"July","cadre":"EE"},{"sl":47,"cadre_sl":18,"eid":1019503,"name":"A RAJASEKHAR","dob":"1968-06-08","community":"BC-D","dob_year":1968,"retire_year":2028,"month":"June","cadre":"EE"},{"sl":48,"cadre_sl":19,"eid":1022658,"name":"GSURESHBABU","dob":"1972-08-20","community":"BC-A","dob_year":1972,"retire_year":2032,"month":"August","cadre":"EE"},{"sl":49,"cadre_sl":20,"eid":1022218,"name":"VANSRINIVASRAO","dob":"1970-05-16","community":"OC","dob_year":1970,"retire_year":2030,"month":"May","cadre":"EE"},{"sl":50,"cadre_sl":21,"eid":1022201,"name":"SRAMAKRISHNA","dob":"1967-06-24","community":"BC-D","dob_year":1967,"retire_year":2027,"month":"June","cadre":"EE"},{"sl":51,"cadre_sl":22,"eid":1025030,"name":"B VEERABHADRARAO","dob":"1967-06-20","community":"OC","dob_year":1967,"retire_year":2027,"month":"June","cadre":"EE"},{"sl":52,"cadre_sl":23,"eid":1025711,"name":"N VENKATESWARARAO","dob":"1968-08-01","community":"OC","dob_year":1968,"retire_year":2028,"month":"August","cadre":"EE"},{"sl":53,"cadre_sl":24,"eid":1024130,"name":"V YESUDAS","dob":"1969-02-01","community":"SC","dob_year":1969,"retire_year":2029,"month":"February","cadre":"EE"},{"sl":54,"cadre_sl":25,"eid":1019170,"name":"B MALLIKA","dob":"1968-07-20","community":"SC","dob_year":1968,"retire_year":2028,"month":"July","cadre":"EE"},{"sl":55,"cadre_sl":26,"eid":1025896,"name":"T JAGADESH","dob":"1970-08-26","community":"OC","dob_year":1970,"retire_year":2030,"month":"August","cadre":"EE"},{"sl":56,"cadre_sl":27,"eid":1019301,"name":"VDVRAMAKRISHNARAO","dob":"1970-07-24","community":"OC","dob_year":1970,"retire_year":2030,"month":"July","cadre":"EE"},{"sl":57,"cadre_sl":28,"eid":1019312,"name":"CHELLIBABU POTULA","dob":"24303","community":"BC-D-PH OH","dob_year":1966,"retire_year":2026,"month":"July","cadre":"EE"},{"sl":58,"cadre_sl":29,"eid":1051493,"name":"T GOPALA KRISHNA MURTHY","dob":"25352","community":"OC","dob_year":1969,"retire_year":2029,"month":"May","cadre":"EE"},{"sl":59,"cadre_sl":30,"eid":1025812,"name":"VASUPALLI LAKSHMANA RAO","dob":"25005","community":"BC-A","dob_year":1968,"retire_year":2028,"month":"June","cadre":"EE"},{"sl":60,"cadre_sl":31,"eid":1019084,"name":"KVSARADADEVI","dob":"26491","community":"BC-D","dob_year":1970,"retire_year":2030,"month":"July","cadre":"EE"},{"sl":61,"cadre_sl":32,"eid":1019508,"name":"RAVI KUMAR MOKA","dob":"25796","community":"SC","dob_year":1970,"retire_year":2030,"month":"August","cadre":"EE"},{"sl":62,"cadre_sl":33,"eid":1027042,"name":"KORLAPATI NARASIMHA MURTHY","dob":"25908","community":"OC","dob_year":1970,"retire_year":2030,"month":"December","cadre":"EE"},{"sl":63,"cadre_sl":34,"eid":1023519,"name":"KOLLI RATNALA RAO","dob":"24172","community":"SC","dob_year":1966,"retire_year":2026,"month":"March","cadre":"EE"},{"sl":64,"cadre_sl":35,"eid":1051518,"name":"KOLLABATHULLA MADHU KUMAR","dob":"26763","community":"SC","dob_year":1973,"retire_year":2033,"month":"April","cadre":"EE"},{"sl":65,"cadre_sl":36,"eid":1019115,"name":"PSRINIVASARAO","dob":"25335","community":"BC-D","dob_year":1969,"retire_year":2029,"month":"May","cadre":"EE"},{"sl":66,"cadre_sl":37,"eid":1026654,"name":"DONTHAMSETTI PHANIKIRANKUMAR","dob":"26165","community":"BC-B","dob_year":1971,"retire_year":2031,"month":"August","cadre":"EE"},{"sl":67,"cadre_sl":38,"eid":1029414,"name":"TADIGADAPA SASIDHAR","dob":"26681","community":"SC","dob_year":1973,"retire_year":2033,"month":"January","cadre":"EE"},{"sl":68,"cadre_sl":39,"eid":1019298,"name":"M DHARMARAJU","dob":"25343","community":"BC-A","dob_year":1969,"retire_year":2029,"month":"May","cadre":"EE"},{"sl":69,"cadre_sl":40,"eid":1023520,"name":"NAKKAPALLI SAMUEL","dob":"25544","community":"SC","dob_year":1969,"retire_year":2029,"month":"December","cadre":"EE"},{"sl":70,"cadre_sl":41,"eid":1019221,"name":"YAGNESWARA RAO GULLA","dob":"25239","community":"BC-A","dob_year":1969,"retire_year":2029,"month":"February","cadre":"EE"},{"sl":71,"cadre_sl":42,"eid":1025865,"name":"M. RAVI KUMAR","dob":"24996","community":"OC","dob_year":1968,"retire_year":2028,"month":"June","cadre":"EE"},{"sl":72,"cadre_sl":43,"eid":1024506,"name":"A V N D S PRABHAKAR","dob":"26171","community":"OC","dob_year":1971,"retire_year":2031,"month":"August","cadre":"EE"},{"sl":73,"cadre_sl":44,"eid":1024526,"name":"DUMMANTHU LOVA RAJU","dob":"None","community":"ST","dob_year":1968,"retire_year":2028,"month":"August","cadre":"EE"},{"sl":74,"cadre_sl":45,"eid":1025900,"name":"YEDUNAKA VENKATA RAMA KRISHNA PRASAD","dob":"1971-07-01","community":"BC-D","dob_year":1971,"retire_year":2031,"month":"July","cadre":"EE"},{"sl":75,"cadre_sl":46,"eid":1023380,"name":"KUDARI RAJA SEKHAR","dob":"1966-04-19","community":"SC","dob_year":1966,"retire_year":2026,"month":"April","cadre":"EE"},{"sl":76,"cadre_sl":47,"eid":1026311,"name":"PUDI HARI","dob":"1971-08-18","community":"BC-A","dob_year":1971,"retire_year":2031,"month":"August","cadre":"EE"},{"sl":77,"cadre_sl":48,"eid":1026332,"name":"SATTARU BAYYANNAIDU","dob":"1970-06-22","community":"BC-A","dob_year":1970,"retire_year":2030,"month":"June","cadre":"EE"},{"sl":78,"cadre_sl":49,"eid":1068160,"name":"D.ADINARAYNANA","dob":"1977-04-20","community":"ST","dob_year":1977,"retire_year":2037,"month":"April","cadre":"EE"},{"sl":79,"cadre_sl":50,"eid":1025471,"name":"AVNM APPARAO","dob":"1969-01-01","community":"BC-D","dob_year":1969,"retire_year":2029,"month":"January","cadre":"EE"},{"sl":80,"cadre_sl":51,"eid":1022199,"name":"GUNUPURUSANKARA RAO","dob":"1968-01-01","community":"BC-D","dob_year":1968,"retire_year":2028,"month":"January","cadre":"EE"},{"sl":81,"cadre_sl":52,"eid":1035610,"name":"DUNGA VENU GOPALA RAO","dob":"1966-08-04","community":"BC-B","dob_year":1966,"retire_year":2026,"month":"August","cadre":"EE"},{"sl":82,"cadre_sl":53,"eid":1019215,"name":"JPBNATARAJAN","dob":"1972-02-23","community":"SC","dob_year":1972,"retire_year":2032,"month":"February","cadre":"EE"},{"sl":83,"cadre_sl":54,"eid":1025466,"name":"SV HEMANTHKUMAR","dob":"1969-01-04","community":"BC-A","dob_year":1969,"retire_year":2029,"month":"January","cadre":"EE"},{"sl":84,"cadre_sl":55,"eid":1026305,"name":"P. ANAND","dob":"1973-01-17","community":"BC-B","dob_year":1973,"retire_year":2033,"month":"January","cadre":"EE"},{"sl":85,"cadre_sl":56,"eid":1051506,"name":"V SATYASAIBABA","dob":"1970-07-29","community":"BC-D","dob_year":1970,"retire_year":2030,"month":"July","cadre":"EE"},{"sl":86,"cadre_sl":57,"eid":1051517,"name":"GUNTUKU SURESH KUMAR","dob":"1966-08-10","community":"BC-B","dob_year":1966,"retire_year":2026,"month":"August","cadre":"EE"},{"sl":87,"cadre_sl":58,"eid":1025710,"name":"B RAGHU","dob":"1967-06-25","community":"BC-B","dob_year":1967,"retire_year":2027,"month":"June","cadre":"EE"},{"sl":88,"cadre_sl":59,"eid":1023383,"name":"PUNDRU MURALI KRISHNA","dob":"1967-02-05","community":"BC-B","dob_year":1967,"retire_year":2027,"month":"February","cadre":"EE"},{"sl":89,"cadre_sl":60,"eid":1021129,"name":"YOGESWARA RAO PAIDI","dob":"1967-08-26","community":"BC-A","dob_year":1967,"retire_year":2027,"month":"August","cadre":"EE"},{"sl":90,"cadre_sl":61,"eid":1051519,"name":"KAGANA GOPALA RAO NAIDU","dob":"1968-01-01","community":"OC","dob_year":1968,"retire_year":2028,"month":"January","cadre":"EE"},{"sl":91,"cadre_sl":62,"eid":1024131,"name":"GANDHAM VINALAKSHMI NARASIMHA SRINIVAS","dob":"1967-09-07","community":"OC","dob_year":1967,"retire_year":2027,"month":"September","cadre":"EE"},{"sl":92,"cadre_sl":63,"eid":1024504,"name":"KASANI SRINIVASA RAO","dob":"1970-06-15","community":"BC-B","dob_year":1970,"retire_year":2030,"month":"June","cadre":"EE"},{"sl":93,"cadre_sl":64,"eid":1022213,"name":"D PURUSHOTHAM","dob":"1967-04-14","community":"SC","dob_year":1967,"retire_year":2027,"month":"April","cadre":"EE"},{"sl":94,"cadre_sl":65,"eid":1028934,"name":"TANETI GABRIEL","dob":"1970-05-06","community":"SC","dob_year":1970,"retire_year":2030,"month":"May","cadre":"EE"},{"sl":95,"cadre_sl":66,"eid":1073601,"name":"CHADUVULA USHARANI","dob":"1984","community":"BC-B(PH)","dob_year":1984,"retire_year":2044,"month":"January","cadre":"EE"},{"sl":96,"cadre_sl":67,"eid":1023207,"name":"K.Rambabu","dob":"None","community":"","dob_year":1971,"retire_year":2031,"month":"January","cadre":"EE"},{"sl":97,"cadre_sl":68,"eid":1019250,"name":"PVENUGOPAL","dob":"1972-07-01","community":"BC-D","dob_year":1972,"retire_year":2032,"month":"July","cadre":"EE"},{"sl":98,"cadre_sl":69,"eid":1021440,"name":"VISHNU MURTHY KONDALA","dob":"1974-06-15","community":"BC-A","dob_year":1974,"retire_year":2034,"month":"June","cadre":"EE"},{"sl":99,"cadre_sl":70,"eid":1019299,"name":"KUMAR GOWRI PRASAD UPPULURI","dob":"1974-02-22","community":"OC","dob_year":1974,"retire_year":2034,"month":"February","cadre":"EE"},{"sl":100,"cadre_sl":71,"eid":1059034,"name":"AVLK JAGANNADHASARMA","dob":"1973-06-24","community":"OC","dob_year":1973,"retire_year":2033,"month":"June","cadre":"EE"},{"sl":101,"cadre_sl":72,"eid":1019116,"name":"ATCHYUTACHARI PATNANA","dob":"1973-02-15","community":"BC-B","dob_year":1973,"retire_year":2033,"month":"February","cadre":"EE"},{"sl":102,"cadre_sl":73,"eid":1027043,"name":"E. NARASIMHA KUMAR","dob":"1973-07-23","community":"BC-A","dob_year":1973,"retire_year":2033,"month":"July","cadre":"EE"},{"sl":103,"cadre_sl":74,"eid":1031544,"name":"KAKI VENKATA RAGHU RAJ","dob":"1973-07-22","community":"OC-PH","dob_year":1973,"retire_year":2033,"month":"July","cadre":"EE"},{"sl":104,"cadre_sl":75,"eid":1068177,"name":"P.OMKARAM 6-JAN-1977 ST","dob":"None","community":"ST","dob_year":1977,"retire_year":2037,"month":"January","cadre":"EE"},{"sl":105,"cadre_sl":76,"eid":1024994,"name":"RAMBABU KOTHAPALLI","dob":"1969-08-16","community":"OC","dob_year":1969,"retire_year":2029,"month":"August","cadre":"EE"},{"sl":106,"cadre_sl":77,"eid":1023293,"name":"MOHAMMED JAINULLAH","dob":"1969-08-15","community":"OC","dob_year":1969,"retire_year":2029,"month":"August","cadre":"EE"},{"sl":107,"cadre_sl":78,"eid":1021512,"name":"VENKATA RAMANA BONI","dob":"1973-06-05","community":"SC","dob_year":1973,"retire_year":2033,"month":"June","cadre":"EE"},{"sl":108,"cadre_sl":79,"eid":1062503,"name":"DVSSMURALIDHAR","dob":"1969-10-14","community":"BC-D","dob_year":1969,"retire_year":2029,"month":"October","cadre":"EE"},{"sl":109,"cadre_sl":80,"eid":1019825,"name":"RAJASEKHARAM MULLAPUDI","dob":"1972-08-13","community":"OC","dob_year":1972,"retire_year":2032,"month":"August","cadre":"EE"},{"sl":110,"cadre_sl":1,"eid":1027041,"name":"BOLLAMREDDY VENU GOPALA KRISHNA","dob":"1971-05-10","community":"OC","dob_year":1971,"retire_year":2031,"month":"May","cadre":"Dy.EE"},{"sl":111,"cadre_sl":2,"eid":1019218,"name":"RAMUNAIDU R","dob":"1972-08-29","community":"BC-D","dob_year":1972,"retire_year":2032,"month":"August","cadre":"Dy.EE"},{"sl":112,"cadre_sl":3,"eid":1031523,"name":"CHIRUKURI SRINIVASA RAO","dob":"1972-06-03","community":"OC","dob_year":1972,"retire_year":2032,"month":"June","cadre":"Dy.EE"},{"sl":113,"cadre_sl":4,"eid":1030353,"name":"VULISETTI VEERA VENKATA MURALI KRISHNA","dob":"1968-11-05","community":"OC","dob_year":1968,"retire_year":2028,"month":"November","cadre":"Dy.EE"},{"sl":114,"cadre_sl":5,"eid":1031000,"name":"YELLA MALLIKHARJUNA RAO","dob":"1969-07-15","community":"BC-B","dob_year":1969,"retire_year":2029,"month":"July","cadre":"Dy.EE"},{"sl":115,"cadre_sl":6,"eid":1029446,"name":"LATCHUPATULA SATYANARAYANA","dob":"1976-05-20","community":"BC-D","dob_year":1976,"retire_year":2036,"month":"May","cadre":"Dy.EE"},{"sl":116,"cadre_sl":7,"eid":1052402,"name":"K. NELABALUDU","dob":"1971-06-01","community":"BC-B","dob_year":1971,"retire_year":2031,"month":"June","cadre":"Dy.EE"},{"sl":117,"cadre_sl":8,"eid":1056634,"name":"KODURU GOPALA KRISHNA","dob":"1974-07-10","community":"OC","dob_year":1974,"retire_year":2034,"month":"July","cadre":"Dy.EE"},{"sl":118,"cadre_sl":9,"eid":1025850,"name":"SWARANGI MOHAN CHAKRAVARTHI","dob":"1970-07-18","community":"OC","dob_year":1970,"retire_year":2030,"month":"July","cadre":"Dy.EE"},{"sl":119,"cadre_sl":10,"eid":1022206,"name":"KUNDRAPU. APPA RAO","dob":"1968-09-01","community":"BC-D","dob_year":1968,"retire_year":2028,"month":"September","cadre":"Dy.EE"},{"sl":120,"cadre_sl":11,"eid":1031374,"name":"DASAM RAJU BABU","dob":"1969-09-03","community":"OC","dob_year":1969,"retire_year":2029,"month":"September","cadre":"Dy.EE"},{"sl":121,"cadre_sl":12,"eid":1033235,"name":"MUMMIDI CHANDRASEKHAR KUMAR","dob":"None","community":"OC","dob_year":1973,"retire_year":2033,"month":"June","cadre":"Dy.EE"},{"sl":122,"cadre_sl":13,"eid":1027044,"name":"TULASI VENKATA SIVA RAMAKRISHNA","dob":"None","community":"OC","dob_year":1973,"retire_year":2033,"month":"June","cadre":"Dy.EE"},{"sl":123,"cadre_sl":14,"eid":1021472,"name":"A. RAMA KRISHNA","dob":"None","community":"BC-B","dob_year":1973,"retire_year":2033,"month":"June","cadre":"Dy.EE"},{"sl":124,"cadre_sl":15,"eid":1021513,"name":"A. POORNA CHANDRA SEKHAR RAO","dob":"None","community":"OC","dob_year":1973,"retire_year":2033,"month":"July","cadre":"Dy.EE"},{"sl":125,"cadre_sl":16,"eid":1059318,"name":"YASALAPU VEERA VENKATA SATYANARAYANA","dob":"None","community":"BC-D","dob_year":1974,"retire_year":2034,"month":"July","cadre":"Dy.EE"},{"sl":126,"cadre_sl":17,"eid":1019296,"name":"RAJ KUMAR MARNEEDI","dob":"None","community":"OC","dob_year":1970,"retire_year":2030,"month":"June","cadre":"Dy.EE"},{"sl":127,"cadre_sl":18,"eid":1051274,"name":"DANGETI SRINIVASARAO","dob":"None","community":"BC-B","dob_year":1969,"retire_year":2029,"month":"September","cadre":"Dy.EE"},{"sl":128,"cadre_sl":19,"eid":1038995,"name":"LOKAVARAPU GANGADHAR","dob":"None","community":"BC-B","dob_year":1971,"retire_year":2031,"month":"July","cadre":"Dy.EE"},{"sl":129,"cadre_sl":20,"eid":1016770,"name":"L.T.A.V.S.G.D.PRASAD","dob":"None","community":"BC-B","dob_year":1970,"retire_year":2030,"month":"June","cadre":"Dy.EE"},{"sl":130,"cadre_sl":21,"eid":1019293,"name":"T.VISHNU MURTHY","dob":"None","community":"OC","dob_year":1970,"retire_year":2030,"month":"August","cadre":"Dy.EE"},{"sl":131,"cadre_sl":22,"eid":1021136,"name":"K.PRASADA RAO","dob":"None","community":"OC","dob_year":1972,"retire_year":2032,"month":"August","cadre":"Dy.EE"},{"sl":132,"cadre_sl":23,"eid":1023913,"name":"AKKENA KIRAN KUMAR","dob":"None","community":"BC-D","dob_year":1974,"retire_year":2034,"month":"January","cadre":"Dy.EE"},{"sl":133,"cadre_sl":24,"eid":1024140,"name":"CH.MEENAKETANA RAO","dob":"None","community":"BC-A","dob_year":1973,"retire_year":2033,"month":"January","cadre":"Dy.EE"},{"sl":134,"cadre_sl":25,"eid":1068221,"name":"CH.V.SATYANARAYANA","dob":"None","community":"BC-B","dob_year":1969,"retire_year":2029,"month":"May","cadre":"Dy.EE"},{"sl":135,"cadre_sl":26,"eid":1068224,"name":"PALANI UDAYA BHASKAR SRIDHAR","dob":"None","community":"BC-B","dob_year":1971,"retire_year":2031,"month":"June","cadre":"Dy.EE"},{"sl":136,"cadre_sl":27,"eid":1068223,"name":"R.THIRUPATI RAO","dob":"None","community":"BC-D","dob_year":1969,"retire_year":2029,"month":"March","cadre":"Dy.EE"},{"sl":137,"cadre_sl":28,"eid":1068220,"name":"PENTAKOTA SATYANARAYANA","dob":"None","community":"BC-D","dob_year":1972,"retire_year":2032,"month":"June","cadre":"Dy.EE"},{"sl":138,"cadre_sl":29,"eid":1068147,"name":"R.ESWARA RAO","dob":"None","community":"BC-D","dob_year":1972,"retire_year":2032,"month":"May","cadre":"Dy.EE"},{"sl":139,"cadre_sl":30,"eid":1068222,"name":"D NAGENDRA KISHORE","dob":"None","community":"BC-A","dob_year":1975,"retire_year":2035,"month":"August","cadre":"Dy.EE"},{"sl":140,"cadre_sl":31,"eid":1068165,"name":"BATTU SATYANARAYANA","dob":"None","community":"SC","dob_year":1966,"retire_year":2026,"month":"June","cadre":"Dy.EE"},{"sl":141,"cadre_sl":32,"eid":1068983,"name":"LAXMINARAYANA MUGUPURAM","dob":"None","community":"ST","dob_year":1975,"retire_year":2035,"month":"August","cadre":"Dy.EE"},{"sl":142,"cadre_sl":33,"eid":1068166,"name":"RODDA NAGESWARA RAO","dob":"None","community":"ST","dob_year":1974,"retire_year":2034,"month":"June","cadre":"Dy.EE"},{"sl":143,"cadre_sl":34,"eid":1025676,"name":"BASAVA SURYANARAYANA","dob":"None","community":"OC","dob_year":1971,"retire_year":2031,"month":"February","cadre":"Dy.EE"},{"sl":144,"cadre_sl":35,"eid":1022237,"name":"NOWDU APPALA NAIDU","dob":"None","community":"BC-D","dob_year":1966,"retire_year":2026,"month":"October","cadre":"Dy.EE"},{"sl":145,"cadre_sl":36,"eid":1021866,"name":"K.SATYA PARIPURNA KUMAR","dob":"None","community":"OC","dob_year":1972,"retire_year":2032,"month":"July","cadre":"Dy.EE"},{"sl":146,"cadre_sl":37,"eid":1023200,"name":"BHASKARA RAO DESIDI","dob":"None","community":"ST","dob_year":1969,"retire_year":2029,"month":"July","cadre":"Dy.EE"},{"sl":147,"cadre_sl":38,"eid":1071298,"name":"GULLIPALLI SIVA SATYANARAYANA","dob":"None","community":"OC","dob_year":1970,"retire_year":2030,"month":"June","cadre":"Dy.EE"},{"sl":148,"cadre_sl":39,"eid":1036365,"name":"U.SUBBA RAO UPPUMAGULURU","dob":"None","community":"BC-A","dob_year":1973,"retire_year":2033,"month":"August","cadre":"Dy.EE"},{"sl":149,"cadre_sl":40,"eid":1028362,"name":"MAKA NIRANJAN BABU","dob":"None","community":"SC","dob_year":1976,"retire_year":2036,"month":"April","cadre":"Dy.EE"},{"sl":150,"cadre_sl":41,"eid":1071228,"name":"K.Malaki","dob":"None","community":"BC-C","dob_year":1975,"retire_year":2035,"month":"April","cadre":"Dy.EE"},{"sl":151,"cadre_sl":42,"eid":1023925,"name":"RAVVA SATYANARAYANA RAJU","dob":"None","community":"BC-D","dob_year":1969,"retire_year":2029,"month":"July","cadre":"Dy.EE"},{"sl":152,"cadre_sl":43,"eid":1022742,"name":"K.V. TRINADHA RAO","dob":"None","community":"BC-B","dob_year":1968,"retire_year":2028,"month":"August","cadre":"Dy.EE"},{"sl":153,"cadre_sl":44,"eid":1027992,"name":"YAKASIRI LAXMI NARAYANA","dob":"None","community":"ST","dob_year":1970,"retire_year":2030,"month":"August","cadre":"Dy.EE"},{"sl":154,"cadre_sl":45,"eid":1071230,"name":"TUMMIDI SRINIVASA RAO","dob":"None","community":"BC-A","dob_year":1974,"retire_year":2034,"month":"March","cadre":"Dy.EE"},{"sl":155,"cadre_sl":46,"eid":1071220,"name":"A.RAMA DEVI","dob":"None","community":"SC","dob_year":1979,"retire_year":2039,"month":"June","cadre":"Dy.EE"},{"sl":156,"cadre_sl":47,"eid":1071231,"name":"Y.MADHU","dob":"None","community":"SC","dob_year":1974,"retire_year":2034,"month":"June","cadre":"Dy.EE"},{"sl":157,"cadre_sl":48,"eid":1071229,"name":"M.KRISHNA NAIK","dob":"None","community":"ST","dob_year":1977,"retire_year":2037,"month":"April","cadre":"Dy.EE"},{"sl":158,"cadre_sl":49,"eid":1071236,"name":"LAKAVATHU SATISH NAIK","dob":"None","community":"ST","dob_year":1979,"retire_year":2039,"month":"April","cadre":"Dy.EE"},{"sl":159,"cadre_sl":50,"eid":1071248,"name":"CHITIKENA RAMA KRISHNA","dob":"None","community":"BC-B","dob_year":1975,"retire_year":2035,"month":"January","cadre":"Dy.EE"},{"sl":160,"cadre_sl":51,"eid":1071040,"name":"A.PRASAD","dob":"None","community":"BC-D","dob_year":1977,"retire_year":2037,"month":"August","cadre":"Dy.EE"},{"sl":161,"cadre_sl":52,"eid":1071172,"name":"K.BALAJI","dob":"None","community":"BC-B","dob_year":1979,"retire_year":2039,"month":"August","cadre":"Dy.EE"},{"sl":162,"cadre_sl":53,"eid":1071041,"name":"CH.KOTESWARA RAO","dob":"None","community":"BC-D","dob_year":1980,"retire_year":2040,"month":"May","cadre":"Dy.EE"},{"sl":163,"cadre_sl":54,"eid":1071204,"name":"M.R. GOPAL CHOWDARY","dob":"None","community":"OC","dob_year":1979,"retire_year":2039,"month":"August","cadre":"Dy.EE"},{"sl":164,"cadre_sl":55,"eid":1071250,"name":"CHALLA VENKATESWARA RAO","dob":"None","community":"BC-D","dob_year":1978,"retire_year":2038,"month":"June","cadre":"Dy.EE"},{"sl":165,"cadre_sl":56,"eid":1071223,"name":"K.SESHAGIRI KUMAR","dob":"None","community":"OC","dob_year":1979,"retire_year":2039,"month":"July","cadre":"Dy.EE"},{"sl":166,"cadre_sl":57,"eid":1071200,"name":"P.V.N.M.ESWARA RAO","dob":"None","community":"BC-B","dob_year":1972,"retire_year":2032,"month":"January","cadre":"Dy.EE"},{"sl":167,"cadre_sl":58,"eid":1071194,"name":"NUNNA SUMAN","dob":"None","community":"OC","dob_year":1978,"retire_year":2038,"month":"August","cadre":"Dy.EE"},{"sl":168,"cadre_sl":59,"eid":1071193,"name":"A.APPLA RAJU","dob":"None","community":"OC","dob_year":1974,"retire_year":2034,"month":"March","cadre":"Dy.EE"},{"sl":169,"cadre_sl":60,"eid":1071174,"name":"S.APPANNA BABU","dob":"None","community":"BC-D","dob_year":1976,"retire_year":2036,"month":"August","cadre":"Dy.EE"},{"sl":170,"cadre_sl":61,"eid":1072140,"name":"MANDANGI RAJENDRA PRASAD","dob":"None","community":"ST","dob_year":1980,"retire_year":2040,"month":"June","cadre":"Dy.EE"},{"sl":171,"cadre_sl":62,"eid":1071256,"name":"ANGADI VENKATA ANIL KUMAR","dob":"None","community":"BC-A","dob_year":1978,"retire_year":2038,"month":"August","cadre":"Dy.EE"},{"sl":172,"cadre_sl":63,"eid":1021530,"name":"MUYIDASRINIVASA RAO","dob":"None","community":"BC-D","dob_year":1971,"retire_year":2031,"month":"August","cadre":"Dy.EE"},{"sl":173,"cadre_sl":64,"eid":1071186,"name":"G.V.V.K.R.S.KISHORE","dob":"None","community":"BC-D","dob_year":1972,"retire_year":2032,"month":"August","cadre":"Dy.EE"},{"sl":174,"cadre_sl":65,"eid":1071202,"name":"DOMMETI RAMA KRISHNA","dob":"None","community":"BC-B","dob_year":1979,"retire_year":2039,"month":"February","cadre":"Dy.EE"},{"sl":175,"cadre_sl":66,"eid":1071175,"name":"P.RAJKUMAR","dob":"None","community":"BC-B","dob_year":1980,"retire_year":2040,"month":"May","cadre":"Dy.EE"},{"sl":176,"cadre_sl":67,"eid":1071195,"name":"R.RAMESH","dob":"None","community":"BC-D","dob_year":1976,"retire_year":2036,"month":"August","cadre":"Dy.EE"},{"sl":177,"cadre_sl":68,"eid":1071163,"name":"M.RAJESH BABU","dob":"None","community":"BC-D","dob_year":1980,"retire_year":2040,"month":"May","cadre":"Dy.EE"},{"sl":178,"cadre_sl":69,"eid":1071042,"name":"D.SATISH KUMAR","dob":"None","community":"BC-B","dob_year":1979,"retire_year":2039,"month":"June","cadre":"Dy.EE"},{"sl":179,"cadre_sl":70,"eid":1071168,"name":"U.SURYA KALA","dob":"None","community":"SC","dob_year":1979,"retire_year":2039,"month":"May","cadre":"Dy.EE"},{"sl":180,"cadre_sl":71,"eid":1071179,"name":"BENDI RAVI KUMAR","dob":"None","community":"BC-A","dob_year":1979,"retire_year":2039,"month":"August","cadre":"Dy.EE"},{"sl":181,"cadre_sl":72,"eid":1071038,"name":"A.V.SIVA KUMAR","dob":"None","community":"BC-B","dob_year":1977,"retire_year":2037,"month":"August","cadre":"Dy.EE"},{"sl":182,"cadre_sl":73,"eid":1071045,"name":"K.SANNIRAM BABU","dob":"None","community":"BC-A","dob_year":1971,"retire_year":2031,"month":"May","cadre":"Dy.EE"},{"sl":183,"cadre_sl":74,"eid":1071255,"name":"KODAVATI SURESH","dob":"None","community":"OC","dob_year":1980,"retire_year":2040,"month":"June","cadre":"Dy.EE"},{"sl":184,"cadre_sl":75,"eid":1071183,"name":"MATHA SATYA RAO","dob":"None","community":"SC","dob_year":1973,"retire_year":2033,"month":"July","cadre":"Dy.EE"},{"sl":185,"cadre_sl":76,"eid":1071233,"name":"A.PARDHA SARADHI","dob":"None","community":"OC","dob_year":1976,"retire_year":2036,"month":"August","cadre":"Dy.EE"},{"sl":186,"cadre_sl":77,"eid":1079028,"name":"RAMANUJAM SRINIVAS","dob":"09.06.1970","community":"OC","dob_year":1970,"retire_year":2030,"month":"June","cadre":"Dy.EE"},{"sl":187,"cadre_sl":78,"eid":1071264,"name":"BONU RAJYA LAKSHMI","dob":"None","community":"BC-D","dob_year":1977,"retire_year":2037,"month":"June","cadre":"Dy.EE"},{"sl":188,"cadre_sl":79,"eid":1071185,"name":"BODDEPALLI SRINIVASA RAO","dob":"None","community":"BC-A","dob_year":1979,"retire_year":2039,"month":"August","cadre":"Dy.EE"},{"sl":189,"cadre_sl":80,"eid":1072749,"name":"K.V.V.NAGESWARA RAO","dob":"1976-06-04","community":"OC-PH-OH","dob_year":1976,"retire_year":2036,"month":"June","cadre":"Dy.EE"},{"sl":190,"cadre_sl":81,"eid":1071171,"name":"PILLA SRINIVAS","dob":"None","community":"BC-D","dob_year":1979,"retire_year":2039,"month":"June","cadre":"Dy.EE"},{"sl":191,"cadre_sl":82,"eid":1071197,"name":"K.LAKSHMI SRINIVAS","dob":"None","community":"BC-B","dob_year":1978,"retire_year":2038,"month":"August","cadre":"Dy.EE"},{"sl":192,"cadre_sl":83,"eid":1071211,"name":"M.RATNA PRAKASH","dob":"None","community":"SC","dob_year":1968,"retire_year":2028,"month":"June","cadre":"Dy.EE"},{"sl":193,"cadre_sl":84,"eid":1071263,"name":"N.N.V. RAGHU BABU","dob":"None","community":"OC","dob_year":1975,"retire_year":2035,"month":"June","cadre":"Dy.EE"},{"sl":194,"cadre_sl":85,"eid":1071352,"name":"SIVATI LAKSHMANA RAO","dob":"None","community":"SC","dob_year":1976,"retire_year":2036,"month":"January","cadre":"Dy.EE"},{"sl":195,"cadre_sl":86,"eid":1071180,"name":"G.H.S.S.V.PRASADA RAO","dob":"None","community":"BC-A","dob_year":1976,"retire_year":2036,"month":"August","cadre":"Dy.EE"},{"sl":196,"cadre_sl":87,"eid":1071232,"name":"S.SUJATHA","dob":"None","community":"BC-D","dob_year":1980,"retire_year":2040,"month":"July","cadre":"Dy.EE"},{"sl":197,"cadre_sl":88,"eid":1071222,"name":"TATIKONDA V. MURALI KRISHNA","dob":"None","community":"OC","dob_year":1978,"retire_year":2038,"month":"May","cadre":"Dy.EE"},{"sl":198,"cadre_sl":89,"eid":1071099,"name":"T.MADHAVI LATHA","dob":"None","community":"SC","dob_year":1975,"retire_year":2035,"month":"May","cadre":"Dy.EE"},{"sl":199,"cadre_sl":90,"eid":1071198,"name":"U.V. RAMANA MURTHY","dob":"None","community":"BC-A","dob_year":1969,"retire_year":2029,"month":"August","cadre":"Dy.EE"},{"sl":200,"cadre_sl":91,"eid":1071190,"name":"G.SIRISHA GAYATRI","dob":"None","community":"BC-B","dob_year":1979,"retire_year":2039,"month":"April","cadre":"Dy.EE"},{"sl":201,"cadre_sl":92,"eid":1071221,"name":"CHILKALAPUDI MARUTI VENKATA RATNAM","dob":"None","community":"OC","dob_year":1979,"retire_year":2039,"month":"December","cadre":"Dy.EE"},{"sl":202,"cadre_sl":93,"eid":1071243,"name":"KOTTA ANAND MURALI","dob":"None","community":"OC","dob_year":1974,"retire_year":2034,"month":"June","cadre":"Dy.EE"},{"sl":203,"cadre_sl":94,"eid":1071203,"name":"CH.MADHAVA NAIDU","dob":"None","community":"BC-D","dob_year":1973,"retire_year":2033,"month":"July","cadre":"Dy.EE"},{"sl":204,"cadre_sl":95,"eid":1029418,"name":"CHINTALAPUDI MALLESWARA RAO","dob":"None","community":"BC-B","dob_year":1966,"retire_year":2026,"month":"May","cadre":"Dy.EE"},{"sl":205,"cadre_sl":96,"eid":1071226,"name":"DIDLA CHITTI RAJU","dob":"None","community":"SC","dob_year":1978,"retire_year":2038,"month":"July","cadre":"Dy.EE"},{"sl":206,"cadre_sl":97,"eid":1068125,"name":"A.VASUDEVARAO","dob":"None","community":"BC-D","dob_year":1974,"retire_year":2034,"month":"June","cadre":"Dy.EE"},{"sl":207,"cadre_sl":98,"eid":1071249,"name":"G.V.R. GUPTA","dob":"None","community":"OC","dob_year":1975,"retire_year":2035,"month":"October","cadre":"Dy.EE"},{"sl":208,"cadre_sl":99,"eid":1072002,"name":"Sampath rao SRINIVAS","dob":"None","community":"BC-A","dob_year":1978,"retire_year":2038,"month":"August","cadre":"Dy.EE"},{"sl":209,"cadre_sl":100,"eid":1071173,"name":"R.L.SOWJANYA","dob":"None","community":"BC-B","dob_year":1979,"retire_year":2039,"month":"October","cadre":"Dy.EE"},{"sl":210,"cadre_sl":101,"eid":1071246,"name":"KATTA RAMESH","dob":"None","community":"OC","dob_year":1978,"retire_year":2038,"month":"December","cadre":"Dy.EE"},{"sl":211,"cadre_sl":102,"eid":1071043,"name":"R.VENKATESWARA RAO","dob":"None","community":"BC-A","dob_year":1974,"retire_year":2034,"month":"May","cadre":"Dy.EE"},{"sl":212,"cadre_sl":103,"eid":1071234,"name":"U.SREENIVASA RAO","dob":"None","community":"OC","dob_year":1977,"retire_year":2037,"month":"January","cadre":"Dy.EE"},{"sl":213,"cadre_sl":104,"eid":1071244,"name":"B.V.KRISHNA RAJA","dob":"None","community":"BC-A","dob_year":1977,"retire_year":2037,"month":"July","cadre":"Dy.EE"},{"sl":214,"cadre_sl":105,"eid":1071376,"name":"DANDUBIYINA SRINIVAS","dob":"None","community":"BC-D","dob_year":1977,"retire_year":2037,"month":"September","cadre":"Dy.EE"},{"sl":215,"cadre_sl":106,"eid":1068213,"name":"A SATISH","dob":"None","community":"OC","dob_year":1977,"retire_year":2037,"month":"August","cadre":"Dy.EE"},{"sl":216,"cadre_sl":107,"eid":1068211,"name":"B.RAMAKRISHNA","dob":"None","community":"BC-D","dob_year":1979,"retire_year":2039,"month":"May","cadre":"Dy.EE"},{"sl":217,"cadre_sl":108,"eid":1068206,"name":"P.SANYASI RAO","dob":"None","community":"BC-D","dob_year":1979,"retire_year":2039,"month":"July","cadre":"Dy.EE"},{"sl":218,"cadre_sl":109,"eid":1068141,"name":"V.RAVI SANKAR","dob":"None","community":"BC-D","dob_year":1973,"retire_year":2033,"month":"August","cadre":"Dy.EE"},{"sl":219,"cadre_sl":110,"eid":1068146,"name":"B.SAI SUDHAKAR","dob":"None","community":"BC-B","dob_year":1976,"retire_year":2036,"month":"August","cadre":"Dy.EE"},{"sl":220,"cadre_sl":111,"eid":1070919,"name":"P.KASI BABU","dob":"None","community":"OC","dob_year":1978,"retire_year":2038,"month":"January","cadre":"Dy.EE"},{"sl":221,"cadre_sl":112,"eid":1070927,"name":"B.VENKATA RAO","dob":"None","community":"BC-D","dob_year":1978,"retire_year":2038,"month":"July","cadre":"Dy.EE"},{"sl":222,"cadre_sl":113,"eid":1068185,"name":"VEMPARALA RAVI SANKAR","dob":"None","community":"OC","dob_year":1978,"retire_year":2038,"month":"August","cadre":"Dy.EE"},{"sl":223,"cadre_sl":114,"eid":1068152,"name":"K.RAMAKRISHNA","dob":"None","community":"SC","dob_year":1976,"retire_year":2036,"month":"May","cadre":"Dy.EE"},{"sl":224,"cadre_sl":115,"eid":1028942,"name":"VANGALAPUDI SUDHAKAR","dob":"None","community":"OC","dob_year":1966,"retire_year":2026,"month":"November","cadre":"Dy.EE"},{"sl":225,"cadre_sl":116,"eid":1068167,"name":"A.VEERABHADRA RAO","dob":"None","community":"OC","dob_year":1978,"retire_year":2038,"month":"October","cadre":"Dy.EE"},{"sl":226,"cadre_sl":117,"eid":1068157,"name":"A SATYANANDAM","dob":"None","community":"BC-A","dob_year":1979,"retire_year":2039,"month":"November","cadre":"Dy.EE"},{"sl":227,"cadre_sl":118,"eid":1068174,"name":"VEMPARALA BALA SUBRAHMANYAM","dob":"None","community":"OC","dob_year":1977,"retire_year":2037,"month":"July","cadre":"Dy.EE"},{"sl":228,"cadre_sl":119,"eid":1068170,"name":"GEESALA SRINIVASA RAO","dob":"None","community":"BC-B","dob_year":1976,"retire_year":2036,"month":"January","cadre":"Dy.EE"},{"sl":229,"cadre_sl":120,"eid":1068184,"name":"CH RAMA BHADRA SASTRY","dob":"None","community":"OC","dob_year":1975,"retire_year":2035,"month":"March","cadre":"Dy.EE"},{"sl":230,"cadre_sl":121,"eid":1071153,"name":"O.CHINAMALYADRI","dob":"None","community":"SC","dob_year":1979,"retire_year":2039,"month":"February","cadre":"Dy.EE"},{"sl":231,"cadre_sl":122,"eid":1068153,"name":"K.S.PRAKASA RAO","dob":"None","community":"BC-C","dob_year":1979,"retire_year":2039,"month":"July","cadre":"Dy.EE"},{"sl":232,"cadre_sl":123,"eid":1068205,"name":"A.VENKATESWARA RAO","dob":"None","community":"OC","dob_year":1977,"retire_year":2037,"month":"April","cadre":"Dy.EE"},{"sl":233,"cadre_sl":124,"eid":1068131,"name":"B.RAMBABU","dob":"None","community":"OC","dob_year":1978,"retire_year":2038,"month":"July","cadre":"Dy.EE"},{"sl":234,"cadre_sl":125,"eid":1071336,"name":"I.MADHAVI","dob":"None","community":"SC","dob_year":1982,"retire_year":2042,"month":"May","cadre":"Dy.EE"},{"sl":235,"cadre_sl":126,"eid":1068132,"name":"T.KISHORE KUMAR","dob":"None","community":"BC-D","dob_year":1975,"retire_year":2035,"month":"August","cadre":"Dy.EE"},{"sl":236,"cadre_sl":127,"eid":1071259,"name":"M. CHAITANYA VARMA","dob":"None","community":"OC","dob_year":1979,"retire_year":2039,"month":"November","cadre":"Dy.EE"},{"sl":237,"cadre_sl":128,"eid":1068203,"name":"G.S.V.S.NAIDU","dob":"None","community":"OC","dob_year":1969,"retire_year":2029,"month":null,"cadre":"Dy.EE"},{"sl":238,"cadre_sl":129,"eid":1068129,"name":"K.CHANDRA MOULI","dob":"None","community":"BC-A","dob_year":1979,"retire_year":2039,"month":null,"cadre":"Dy.EE"},{"sl":239,"cadre_sl":130,"eid":1071118,"name":"M.UDAYBHANU NAIDU","dob":"None","community":"BC-D","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":240,"cadre_sl":131,"eid":1071279,"name":"B.USHA RANI","dob":"None","community":"ST","dob_year":1982,"retire_year":2042,"month":null,"cadre":"Dy.EE"},{"sl":241,"cadre_sl":132,"eid":1071126,"name":"P.JYOTHI","dob":"None","community":"BC-D","dob_year":1979,"retire_year":2039,"month":null,"cadre":"Dy.EE"},{"sl":242,"cadre_sl":133,"eid":1071146,"name":"N.JYOTHSNA","dob":"None","community":"BC-B","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":243,"cadre_sl":134,"eid":1071150,"name":"B.JYOTHI","dob":"None","community":"OC","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":244,"cadre_sl":135,"eid":1071144,"name":"M.UDAY KIRAN","dob":"None","community":"BC-C","dob_year":1981,"retire_year":2041,"month":null,"cadre":"Dy.EE"},{"sl":245,"cadre_sl":136,"eid":1071184,"name":"P.NARAYANA RAO","dob":"None","community":"BC-A","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":246,"cadre_sl":137,"eid":1071187,"name":"K.INDIRA","dob":"None","community":"BC-D","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":247,"cadre_sl":138,"eid":1071258,"name":"V.A.VIDYA SAGAR","dob":"None","community":"BC-D","dob_year":1982,"retire_year":2042,"month":null,"cadre":"Dy.EE"},{"sl":248,"cadre_sl":139,"eid":1071164,"name":"P.SUDHIR KUMAR","dob":"None","community":"SC","dob_year":1976,"retire_year":2036,"month":null,"cadre":"Dy.EE"},{"sl":249,"cadre_sl":140,"eid":1071177,"name":"Y.RAMANAMMA","dob":"None","community":"BC-A","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":250,"cadre_sl":141,"eid":1071071,"name":"P.SATYA","dob":"None","community":"BC-D","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":251,"cadre_sl":142,"eid":1023923,"name":"G.ANNAVARAM","dob":"AAE","community":"ST","dob_year":1971,"retire_year":2031,"month":null,"cadre":"Dy.EE"},{"sl":252,"cadre_sl":143,"eid":1071074,"name":"L.L.NARAYANA KIRAN","dob":"None","community":"OC","dob_year":1979,"retire_year":2039,"month":null,"cadre":"Dy.EE"},{"sl":253,"cadre_sl":144,"eid":1071167,"name":"D.V.RAMA REDDY","dob":"None","community":"OC","dob_year":1979,"retire_year":2039,"month":null,"cadre":"Dy.EE"},{"sl":254,"cadre_sl":145,"eid":1071239,"name":"G.RADHIKA","dob":"None","community":"SC","dob_year":1982,"retire_year":2042,"month":null,"cadre":"Dy.EE"},{"sl":255,"cadre_sl":146,"eid":1071079,"name":"M.KISHORE KUMAR RAJU","dob":"None","community":"OC","dob_year":1976,"retire_year":2036,"month":null,"cadre":"Dy.EE"},{"sl":256,"cadre_sl":147,"eid":1053525,"name":"K JANGAMESWARA RAO","dob":"AAE","community":"OC","dob_year":1967,"retire_year":2027,"month":null,"cadre":"Dy.EE"},{"sl":257,"cadre_sl":148,"eid":1022690,"name":"M.BHIMA RAJU","dob":"None","community":"SC","dob_year":1970,"retire_year":2030,"month":null,"cadre":"Dy.EE"},{"sl":258,"cadre_sl":149,"eid":1071165,"name":"S.RAJASEKHAR","dob":"None","community":"SC","dob_year":1976,"retire_year":2036,"month":null,"cadre":"Dy.EE"},{"sl":259,"cadre_sl":150,"eid":1071137,"name":"T.VENKATA RAO","dob":"None","community":"ST","dob_year":1977,"retire_year":2037,"month":null,"cadre":"Dy.EE"},{"sl":260,"cadre_sl":151,"eid":1071166,"name":"K.MURALI MOHAN","dob":"None","community":"OC","dob_year":1979,"retire_year":2039,"month":null,"cadre":"Dy.EE"},{"sl":261,"cadre_sl":152,"eid":1071133,"name":"T.KIRAN KUMAR","dob":"None","community":"SC","dob_year":1976,"retire_year":2036,"month":null,"cadre":"Dy.EE"},{"sl":262,"cadre_sl":153,"eid":1071213,"name":"S.TRIVASU","dob":"None","community":"BC-D","dob_year":1980,"retire_year":2040,"month":null,"cadre":"Dy.EE"},{"sl":263,"cadre_sl":154,"eid":1071265,"name":"V.SUNEETA","dob":"None","community":"BC-A","dob_year":1978,"retire_year":2038,"month":null,"cadre":"Dy.EE"},{"sl":264,"cadre_sl":155,"eid":1071169,"name":"I.V.MALLESWARA RAO","dob":"None","community":"BC-B","dob_year":1978,"retire_year":2038,"month":null,"cadre":"Dy.EE"},{"sl":265,"cadre_sl":156,"eid":1022202,"name":"M.V.Rama Rao","dob":"None","community":"BC-D","dob_year":1966,"retire_year":2026,"month":null,"cadre":"Dy.EE"}];
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CADRE_COLORS = { CGM: '#7c3aed', GM: '#0891b2', EE: '#059669', 'Dy.EE': '#d97706' };
+const CADRE_BG = { CGM: 'badge-cgm', GM: 'badge-gm', EE: 'badge-ee', 'Dy.EE': 'badge-dyee' };
+
+let activeFilter = 'ALL';
+let activeYear = 'ALL';
+let sortKey = 'sl'; let sortDir = 1;
+let page = 1; const PER_PAGE = 15;
+
+function filtered() {
+  return RAW.filter(d => {
+    if (activeFilter !== 'ALL' && d.cadre !== activeFilter) return false;
+    if (activeYear !== 'ALL' && String(d.retire_year) !== activeYear) return false;
+    return true;
+  });
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  page = 1;
+  renderAll();
+}
+
+function populateYearDropdown() {
+  const years = [...new Set(RAW.filter(d => d.retire_year).map(d => d.retire_year))].sort();
+  const sel = document.getElementById('yearFilter');
+  years.forEach(y => { const o = document.createElement('option'); o.value = y; o.text = y; sel.appendChild(o); });
+}
+
+let charts = {};
+function renderAll() {
+  activeYear = document.getElementById('yearFilter').value;
+  const data = filtered();
+  renderCadreChart(data);
+  renderMonthChart(data);
+  renderYearChart(data);
+  renderHeatmap(data);
+  renderTable();
+}
+
+function renderCadreChart(data) {
+  const counts = {};
+  ['CGM','GM','EE','Dy.EE'].forEach(c => counts[c] = 0);
+  data.forEach(d => { if (d.cadre) counts[d.cadre] = (counts[d.cadre]||0)+1; });
+  const ctx = document.getElementById('cadreChart').getContext('2d');
+  if (charts.cadre) charts.cadre.destroy();
+  charts.cadre = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(counts),
+      datasets: [{ data: Object.values(counts), backgroundColor: ['#7c3aed','#0891b2','#059669','#d97706'], borderWidth: 3, borderColor: '#fff', hoverOffset: 8 }]
+    },
+    options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } } }, animation: { duration: 600 } }
+  });
+}
+
+function renderMonthChart(data) {
+  const counts = {};
+  MONTHS.forEach(m => counts[m] = 0);
+  data.forEach(d => { if (d.month) counts[d.month] = (counts[d.month]||0)+1; });
+  const ctx = document.getElementById('monthChart').getContext('2d');
+  if (charts.month) charts.month.destroy();
+  charts.month = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: MONTHS.map(m => m.slice(0,3)),
+      datasets: [{ data: MONTHS.map(m => counts[m]), backgroundColor: MONTHS.map((_,i) => `hsl(${210+i*10},70%,${55+i*1.5}%)`), borderRadius: 5, borderSkipped: false }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }, animation: { duration: 500 } }
+  });
+}
+
+function renderYearChart(data) {
+  const yearCounts = {};
+  const cadres = ['CGM','GM','EE','Dy.EE'];
+  const yearSet = [...new Set(data.filter(d=>d.retire_year).map(d=>d.retire_year))].sort();
+  yearSet.forEach(y => { yearCounts[y] = {}; cadres.forEach(c => yearCounts[y][c] = 0); });
+  data.forEach(d => { if (d.retire_year && yearCounts[d.retire_year]) yearCounts[d.retire_year][d.cadre] = (yearCounts[d.retire_year][d.cadre]||0)+1; });
+  const ctx = document.getElementById('yearChart').getContext('2d');
+  if (charts.year) charts.year.destroy();
+  charts.year = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: yearSet,
+      datasets: cadres.map(c => ({ label: c, data: yearSet.map(y => yearCounts[y][c]||0), backgroundColor: CADRE_COLORS[c]+'cc', borderRadius: 3, stack: 'a' }))
+    },
+    options: { plugins: { legend: { position: 'top', labels: { font: { size: 11 }, padding: 12 } } }, scales: { y: { stacked: true, beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } } }, animation: { duration: 500 } }
+  });
+}
+
+function hmColor(v, max) {
+  if (v === 0) return '#f8fafc';
+  const pct = v / max;
+  if (pct < 0.2) return '#dbeafe';
+  if (pct < 0.4) return '#93c5fd';
+  if (pct < 0.6) return '#3b82f6';
+  if (pct < 0.8) return '#1d4ed8';
+  return '#1e3a8a';
+}
+function hmText(v, max) { return v/max > 0.5 ? '#fff' : '#1e3a8a'; }
+
+function renderHeatmap(data) {
+  const yearSet = [...new Set(data.filter(d=>d.retire_year).map(d=>d.retire_year))].sort();
+  const grid = {};
+  yearSet.forEach(y => { grid[y] = {}; MONTHS.forEach(m => grid[y][m] = 0); });
+  data.forEach(d => { if (d.retire_year && d.month && grid[d.retire_year]) grid[d.retire_year][d.month]++; });
+  const allVals = Object.values(grid).flatMap(r => Object.values(r));
+  const max = Math.max(...allVals, 1);
+
+  let html = '<div class="heatmap-grid">';
+  html += '<div class="hm-header"></div>';
+  MONTHS.forEach(m => html += `<div class="hm-header">${m.slice(0,3)}</div>`);
+  yearSet.forEach(y => {
+    html += `<div class="hm-year">${y}</div>`;
+    MONTHS.forEach(m => {
+      const v = grid[y][m];
+      const bg = hmColor(v, max);
+      const tc = hmText(v, max);
+      html += `<div class="hm-cell" style="background:${bg};color:${tc}" onmouseenter="showTip(event,'${y} ${m}: ${v} retirements')" onmouseleave="hideTip()">${v||''}</div>`;
+    });
+  });
+  html += '</div>';
+  document.getElementById('heatmap').innerHTML = html;
+}
+
+let sortedData = [];
+function sortTable(key) {
+  if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+  page = 1; renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  let data = filtered().filter(d => {
+    if (!q) return true;
+    return String(d.name||'').toLowerCase().includes(q) || String(d.eid||'').includes(q) || String(d.cadre||'').toLowerCase().includes(q) || String(d.community||'').toLowerCase().includes(q);
+  });
+  data.sort((a,b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (av === null || av === undefined) av = '';
+    if (bv === null || bv === undefined) bv = '';
+    return String(av).localeCompare(String(bv), undefined, {numeric:true}) * sortDir;
+  });
+  sortedData = data;
+  const total = data.length;
+  const totalPages = Math.ceil(total / PER_PAGE);
+  if (page > totalPages) page = Math.max(1, totalPages);
+  const slice = data.slice((page-1)*PER_PAGE, page*PER_PAGE);
+
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = slice.map(d => `
+    <tr>
+      <td>${d.sl||''}</td>
+      <td>${d.eid||''}</td>
+      <td style="font-weight:500">${d.name||''}</td>
+      <td><span class="badge ${CADRE_BG[d.cadre]||''}">${d.cadre||''}</span></td>
+      <td>${d.community||'—'}</td>
+      <td style="font-weight:600;color:#2563eb">${d.retire_year||'—'}</td>
+      <td>${d.month||'—'}</td>
+    </tr>`).join('');
+
+  document.getElementById('pageInfo').textContent = `Showing ${Math.min((page-1)*PER_PAGE+1, total)}–${Math.min(page*PER_PAGE, total)} of ${total} records`;
+
+  const pb = document.getElementById('pageBtns');
+  pb.innerHTML = '';
+  const prev = document.createElement('button'); prev.className = 'page-btn'; prev.textContent = '← Prev';
+  prev.onclick = () => { if (page > 1) { page--; renderTable(); } };
+  pb.appendChild(prev);
+  const range = [];
+  for (let i = Math.max(1,page-2); i <= Math.min(totalPages, page+2); i++) range.push(i);
+  range.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'page-btn' + (p === page ? ' active' : '');
+    btn.textContent = p;
+    btn.onclick = () => { page = p; renderTable(); };
+    pb.appendChild(btn);
+  });
+  const next = document.createElement('button'); next.className = 'page-btn'; next.textContent = 'Next →';
+  next.onclick = () => { if (page < totalPages) { page++; renderTable(); } };
+  pb.appendChild(next);
+}
+
+function showTip(e, msg) {
+  const t = document.getElementById('tooltip');
+  t.innerHTML = msg; t.style.opacity = 1;
+  t.style.left = (e.clientX+12)+'px'; t.style.top = (e.clientY-30)+'px';
+}
+function hideTip() { document.getElementById('tooltip').style.opacity = 0; }
+document.addEventListener('mousemove', e => {
+  const t = document.getElementById('tooltip');
+  if (t.style.opacity == 1) { t.style.left=(e.clientX+12)+'px'; t.style.top=(e.clientY-30)+'px'; }
+});
+
+populateYearDropdown();
+renderAll();
+</script>
+</body>
+</html>
